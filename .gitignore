@@ -1,0 +1,22 @@
+# dependencies (none yet — here in case tooling is added later)
+node_modules/
+
+# build output
+dist/
+build/
+
+# editor / os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# env / secrets
+.env
+.env.*
+*.local
+
+# Claude Code (machine-specific / local)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
