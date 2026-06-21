@@ -1,14 +1,47 @@
 # XAXANADU — Design Handoff
 
 A guide for the **look & feel** pass. The game is fully playable with procedural
-neon placeholders; everything visual is deliberately isolated so art can change
-without touching mechanics. This doc maps **every visual element to the exact
-file and function that draws it**, then lists the safe re-skin levers.
+**neon placeholders**, but those are just scaffolding — the **target art
+direction is a dark fantasy RPG** that captures the feel of the original
+**Faxanadu** (NES, 1987). Everything visual is deliberately isolated so the art
+can change completely without touching mechanics. This doc states the target
+direction, then maps **every visual element to the exact file and function that
+draws it** so you know where to apply it.
 
 > Golden rule: **change how things are drawn, not how they move.** Physics,
 > combat, input, camera, and stats live separately from rendering. If you find
 > yourself editing velocity/collision/timers to change the look, stop — there's
 > almost always a `draw()` seam instead.
+
+---
+
+## 0. Art direction — the target look (READ FIRST)
+
+**Mood: dark fantasy RPG, in the spirit of the original Faxanadu.** Replace the
+neon entirely. We are not keeping the synthwave/glow aesthetic — it's placeholder
+only.
+
+- **Tone:** somber, melancholic, mysterious. A decaying fantasy world inside the
+  great World Tree — overgrown ruins, gloom, quiet dread, faded grandeur.
+- **Palette:** muted and earthy. Deep browns, mossy greens, slate greys, dim
+  ochres, dried-blood reds, weathered bronze/gold. Low saturation overall; color
+  used sparingly for emphasis (a torch, a magic spark, a key) against dark
+  backdrops. Backgrounds are darker than foreground so the player reads clearly.
+- **Lighting:** moody and directional. Pools of warm torchlight against cold
+  shadow. Soft vignetting. Subtle ambient glow is fine where it sells torches,
+  magic, and pickups — but it should feel like *light in darkness*, not neon.
+- **Forms:** medieval-fantasy. The hero reads as a cloaked/armored adventurer;
+  enemies as grotesque/decayed creatures; tiles as carved stone, bark, brick,
+  and root; the door as an ornate locked gate; pickups as coins, bread, an
+  ornate key. Pixel-art friendly (logical 512×288, integer coords).
+- **HUD:** parchment / aged-metal RPG framing rather than glowing bars — engraved
+  panels, runic accents, serif-ish or blackletter-leaning type if legible at small
+  sizes.
+- **Reference feel:** Faxanadu's gloomy World Tree interiors and town gloom;
+  classic dark-fantasy NES/16-bit RPGs. Atmospheric, not flashy.
+
+Keep all the **game-feel timing** (hit flashes, i-frame flicker, bob, attack
+window) — just express it in the dark-fantasy vocabulary instead of neon.
 
 ---
 
@@ -30,7 +63,9 @@ file and function that draws it**, then lists the safe re-skin levers.
 
 ### Lever A — the palette: [js/assets.js](js/assets.js) `COLORS`
 One object that every draw call reads from. Recoloring the entire game = editing
-these values. Current keys:
+these values. **First move: replace these neon hex values with the muted
+dark-fantasy palette** (deep browns/greens/greys, sparse warm accents). The keys
+stay the same; only the colors change. Current keys:
 
 | Key | Used for |
 |---|---|
@@ -48,8 +83,13 @@ these values. Current keys:
 ### Lever B — the glow helpers: [js/assets.js](js/assets.js)
 `neonRect(ctx, x, y, w, h, color, glow=8)` and
 `neonStroke(ctx, x, y, w, h, color, glow=6, lw=1)`.
-Change the glow model globally here (blur amount, add gradients, scanlines, etc.)
-and the whole game's "neon" character shifts at once.
+These are the global rendering character. For dark fantasy, **dial the glow way
+down** — most surfaces (stone, bark, the hero, enemies) should be flat or softly
+shaded with little to no `shadowBlur`. Reserve glow for genuine light sources
+(torches, magic, the key/door, pickups). Easiest path: either lower the default
+`glow` and desaturate, or keep these for light-emitters and add a plain
+`fillRect`/shaded draw path for everything else. Changing the model here shifts
+the whole game's feel at once.
 
 ---
 
@@ -57,21 +97,21 @@ and the whole game's "neon" character shifts at once.
 
 | Visual element | File · function | Notes for re-skin |
 |---|---|---|
-| **Page frame / CRT bezel** | [css/style.css](css/style.css) | Border, outer glow, background gradient, scale factor. Pure CSS — safe to restyle freely. |
+| **Page frame / bezel** | [css/style.css](css/style.css) | Border, outer glow, background gradient, scale factor. Pure CSS — restyle as a dark stone/wood RPG frame (carved border, dim vignette) instead of the neon bezel. |
 | **Canvas size & scaling** | [index.html](index.html) (`width/height`) + [css/style.css](css/style.css) (`#game`) | Keep logical 512×288 unless you also adjust camera math. |
-| **Background fill** | [game.js](js/game.js) `render()` | Solid `COLORS.bg` fill each frame. |
-| **Parallax grid / depth** | [game.js](js/game.js) `drawParallax()` | Faint moving grid. Replace with starfield, fog layers, sky gradient, etc. Self-contained. |
-| **Platforms / solid tiles** | [level.js](js/level.js) `draw()` (`t === "#"`) | Fill + neon top edge. Prime spot for a tileset. |
-| **Ladders** | [level.js](js/level.js) `draw()` (`t === "H"`) | Drawn as two rails + rungs via canvas lines. |
-| **Locked door** | [level.js](js/level.js) `draw()` (`t === "D"`) | 2 tiles tall; disappears when opened. |
-| **Player (body, highlight, eye)** | [player.js](js/player.js) `draw()` | Body rect + highlight bar + facing eye. `this.dir` = facing (±1). Flickers during i-frames — keep that behavior for game feel. |
-| **Sword swing** | [player.js](js/player.js) `draw()` (`if this.attack > 6`) | Visual must stay synced to the hitbox window (active while `attack > 6`). Reskin the visual; don't change the timing. |
-| **Enemies (walker / flyer)** | [entities.js](js/entities.js) `Enemy.draw()` | Body rect + eyes; color from type. White flash on hit (`this.flash`) — preserve as damage feedback. |
-| **Magic projectile** | [entities.js](js/entities.js) `Projectile.draw()` | Small glowing rect. |
-| **Pickups (gold / bread / key)** | [entities.js](js/entities.js) `Pickup.draw()` | Each type its own shape; gentle bob via `Math.sin`. |
-| **Goal flag** | [game.js](js/game.js) `render()` (after entities) | Pole + flag in `COLORS.bread`. |
-| **HUD bar (HP/MP/EXP/Gold/Keys/Rank)** | [hud.js](js/hud.js) `HUD.draw()` + `bar()` + `label()` | Top status bar. Fonts are canvas `ctx.font` ("Consolas"). Rank titles table is `RANKS` in the same file. |
-| **Transient center messages** | [hud.js](js/hud.js) `HUD.draw()` (msg block) | Door hints / win text. Driven by `game.flash(...)`. |
+| **Background fill** | [game.js](js/game.js) `render()` | Solid `COLORS.bg` fill each frame — make it a deep, near-black backdrop. |
+| **Parallax background / depth** | [game.js](js/game.js) `drawParallax()` | Currently a faint grid. Replace with dark-fantasy depth: distant cave/tree-interior silhouettes, drifting fog, dust motes, faint pillars. Self-contained. |
+| **Platforms / solid tiles** | [level.js](js/level.js) `draw()` (`t === "#"`) | Fill + edge highlight. Prime spot for a carved-stone / bark / brick tileset. |
+| **Ladders** | [level.js](js/level.js) `draw()` (`t === "H"`) | Two rails + rungs via canvas lines. Reskin as wooden/rope ladder or vine. |
+| **Locked door** | [level.js](js/level.js) `draw()` (`t === "D"`) | 2 tiles tall; disappears when opened. Make it an ornate locked gate. |
+| **Player (body, highlight, eye)** | [player.js](js/player.js) `draw()` | Body rect + highlight bar + facing eye. `this.dir` = facing (±1). Target: cloaked/armored adventurer. Flickers during i-frames — keep that behavior for game feel. |
+| **Sword swing** | [player.js](js/player.js) `draw()` (`if this.attack > 6`) | Visual must stay synced to the hitbox window (active while `attack > 6`). Reskin as a blade arc/slash; don't change the timing. |
+| **Enemies (walker / flyer)** | [entities.js](js/entities.js) `Enemy.draw()` | Body rect + eyes; color from type. Target: grotesque/decayed creatures. White flash on hit (`this.flash`) — preserve as damage feedback. |
+| **Magic projectile** | [entities.js](js/entities.js) `Projectile.draw()` | Small glowing rect — good place to keep a genuine glow (an arcane bolt/ember). |
+| **Pickups (gold / bread / key)** | [entities.js](js/entities.js) `Pickup.draw()` | Each type its own shape; gentle bob via `Math.sin`. Target: coins, a bread loaf, an ornate key — softly lit so they catch the eye in the gloom. |
+| **Goal flag** | [game.js](js/game.js) `render()` (after entities) | Pole + flag in `COLORS.bread`. Reskin as a shrine/banner/summit marker. |
+| **HUD bar (HP/MP/EXP/Gold/Keys/Rank)** | [hud.js](js/hud.js) `HUD.draw()` + `bar()` + `label()` | Top status bar. Target: parchment/aged-metal RPG panel with engraved bars. Fonts are canvas `ctx.font` ("Consolas") — swap for a fitting legible face. Rank titles table is `RANKS` in the same file. |
+| **Transient center messages** | [hud.js](js/hud.js) `HUD.draw()` (msg block) | Door hints / win text. Driven by `game.flash(...)`. Style as an in-world scroll/plaque. |
 
 ---
 
@@ -105,6 +145,9 @@ rather than `Date.now()` so it stays in lockstep with the fixed 60 Hz update.
 
 Because all art goes through `draw()` methods and one palette, you can reskin
 incrementally — one entity at a time — and the game stays playable throughout.
+Suggested order for the dark-fantasy pass: (1) swap `COLORS` to the muted palette
+and dial down glow, (2) reskin tiles/background for atmosphere, (3) hero +
+enemies, (4) HUD framing, (5) polish lighting (torches, magic, pickups).
 
 ---
 
