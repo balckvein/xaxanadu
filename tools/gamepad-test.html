@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gamepad Test — XAXANADU</title>
+  <style>
+    body { background:#05060c; color:#cfe9ff; font-family:Consolas,monospace; margin:0; padding:24px; }
+    h1 { color:#2cf5d6; letter-spacing:2px; }
+    #status { font-size:20px; margin:16px 0; padding:12px; border-radius:6px; }
+    .ok  { background:#0a2a1a; color:#9bffb0; border:1px solid #2cf5d6; }
+    .bad { background:#2a0a14; color:#ff8aa0; border:1px solid #ff4d6d; }
+    .row { margin:6px 0; }
+    .btn { display:inline-block; min-width:42px; padding:6px 8px; margin:3px; text-align:center;
+           background:#10182c; border:1px solid #233; border-radius:5px; }
+    .btn.on { background:#2cf5d6; color:#05060c; font-weight:bold; box-shadow:0 0 12px #2cf5d6; }
+    .axis { display:inline-block; width:150px; }
+    .bar { display:inline-block; width:200px; height:10px; background:#10182c; vertical-align:middle; position:relative; }
+    .bar i { position:absolute; top:0; bottom:0; width:4px; background:#2cf5d6; left:50%; }
+    code { color:#ffd54a; }
+    ol { line-height:1.7; }
+  </style>
+</head>
+<body>
+  <h1>XAXANADU — GAMEPAD TEST</h1>
+
+  <div id="status" class="bad">Waiting for a gamepad… press any button on the controller.</div>
+
+  <div class="row">id: <code id="id">—</code></div>
+  <div class="row">mapping: <code id="mapping">—</code> &nbsp; index: <code id="index">—</code></div>
+
+  <h3>Buttons (lit number = pressed)</h3>
+  <div id="buttons"></div>
+
+  <h3>Axes</h3>
+  <div id="axes"></div>
+
+  <h3>If it stays red:</h3>
+  <ol>
+    <li><b>Click anywhere on this page first</b>, then press a controller button (browsers hide the pad until the focused tab gets input).</li>
+    <li><b>Close Steam</b> (or Steam → Settings → Controller → disable Xbox support). Steam often hijacks the pad.</li>
+    <li>Use <b>Chrome or Edge</b>. Avoid in-editor "Simple Browser"/preview panes — many don't expose gamepads.</li>
+    <li>Re-pair / re-plug the controller, then reload this page.</li>
+  </ol>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const idEl = document.getElementById("id");
+    const mapEl = document.getElementById("mapping");
+    const idxEl = document.getElementById("index");
+    const btnEl = document.getElementById("buttons");
+    const axEl = document.getElementById("axes");
+
+    window.addEventListener("gamepadconnected", (e) => console.log("connected", e.gamepad));
+
+    function activePad() {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      for (const p of pads) if (p) return p;
+      return null;
+    }
+
+    function loop() {
+      const p = activePad();
+      if (!p) {
+        statusEl.className = "bad";
+        statusEl.textContent = "Waiting for a gamepad… click this page, then press a button.";
+      } else {
+        statusEl.className = "ok";
+        statusEl.textContent = "GAMEPAD DETECTED ✓  (move sticks / press buttons to confirm)";
+        idEl.textContent = p.id;
+        mapEl.textContent = p.mapping || "(none / non-standard)";
+        idxEl.textContent = p.index;
+
+        btnEl.innerHTML = "";
+        p.buttons.forEach((b, i) => {
+          const on = b.pressed || b.value > 0.5;
+          const d = document.createElement("div");
+          d.className = "btn" + (on ? " on" : "");
+          d.textContent = i;
+          btnEl.appendChild(d);
+        });
+
+        axEl.innerHTML = "";
+        p.axes.forEach((v, i) => {
+          const row = document.createElement("div");
+          row.className = "row";
+          const pos = (50 + v * 48).toFixed(0);
+          row.innerHTML = `<span class="axis">axis ${i}: ${v.toFixed(2)}</span>` +
+                          `<span class="bar"><i style="left:${pos}%"></i></span>`;
+          axEl.appendChild(row);
+        });
+      }
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>

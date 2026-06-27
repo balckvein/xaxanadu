@@ -1,0 +1,17 @@
+{
+  "name": "xaxanadu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "XAXANADU — a neon Faxanadu-inspired action-RPG (HTML5), packaged for Android/Fire via Capacitor.",
+  "scripts": {
+    "web": "node scripts/build_web.mjs",
+    "test": "node tools/headless.js",
+    "apk": "node scripts/build_apk.mjs",
+    "apk:install": "node scripts/build_apk.mjs --install"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1"
+  }
+}

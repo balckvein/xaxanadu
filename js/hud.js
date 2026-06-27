@@ -26,9 +26,15 @@ function rankFor(exp) {
   return r.name;
 }
 
+function rankIndexFor(exp) {
+  let idx = 0;
+  for (let i = 0; i < RANKS.length; i++) if (exp >= RANKS[i].exp) idx = i;
+  return idx;
+}
+
 const HUD = {
   draw(ctx, player, msg) {
-    const W = ctx.canvas.width;
+    const W = VIEW_W;
     // backing bar
     ctx.fillStyle = "rgba(4,8,16,0.85)";
     ctx.fillRect(0, 0, W, 34);
@@ -41,6 +47,15 @@ const HUD = {
     this.bar(ctx, 148, 6, 100, 8, player.mp / player.mpMax, COLORS.mpFill, COLORS.mpBack);
     this.label(ctx, 148, 24, "MP " + player.mp + "/" + player.mpMax);
 
+    // equipped gear (between MP and gold)
+    ctx.font = "8px Consolas, monospace";
+    ctx.fillStyle = COLORS.playerHi;
+    ctx.fillText("ATK " + player.meleeDmg, 205, 14);
+    ctx.fillStyle = COLORS.solidEdge;
+    ctx.fillText("DEF " + player.armorReduce, 205, 26);
+    ctx.fillStyle = player.magic.color;
+    ctx.fillText("MAG " + player.magic.dmg, 250, 14);
+
     // stats on the right
     ctx.fillStyle = COLORS.gold;
     ctx.font = "9px Consolas, monospace";
@@ -48,10 +63,40 @@ const HUD = {
     ctx.fillText("GOLD " + player.gold, 300, 14);
     ctx.fillStyle = COLORS.text;
     ctx.fillText("EXP " + player.exp, 300, 26);
-    ctx.fillStyle = COLORS.key;
-    ctx.fillText("KEYS " + player.keys, 392, 26);
+    ctx.fillStyle = "#9bff5c";
+    ctx.fillText("ELIX " + (player.elixirs || 0) + " (Y)", 392, 26);
     ctx.fillStyle = COLORS.player;
     ctx.fillText(rankFor(player.exp), 392, 14);
+
+    // top-right indicators: controller + mute
+    ctx.font = "8px Consolas, monospace";
+    ctx.textAlign = "right";
+    if (typeof Input !== "undefined" && Input.gamepadConnected) {
+      neonRect(ctx, W - 12, 6, 6, 6, "#9bffb0", 8);
+      ctx.fillStyle = "#9bffb0";
+      ctx.fillText("PAD", W - 16, 12);
+    }
+    if (typeof SFX !== "undefined" && SFX.muted) {
+      ctx.fillStyle = "#ff4d6d";
+      ctx.fillText("MUTED (M)", W - 16, 24);
+    }
+    ctx.textAlign = "left";
+
+    // active power-up chips with countdown (left, just under the bar)
+    if (player.buffs && typeof BUFFS !== "undefined") {
+      let bx = 8;
+      for (const k in player.buffs) {
+        const fr = player.buffs[k];
+        if (fr <= 0) continue;
+        const meta = BUFFS[k];
+        neonRect(ctx, bx, 38, 6, 6, meta.color, 8);
+        ctx.fillStyle = meta.color;
+        ctx.font = "8px Consolas, monospace";
+        const label = meta.name + " " + Math.ceil(fr / 60) + "s";
+        ctx.fillText(label, bx + 9, 44);
+        bx += 16 + ctx.measureText(label).width;
+      }
+    }
 
     // transient center message (door hints, win, etc.)
     if (msg) {

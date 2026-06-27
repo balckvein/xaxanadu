@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>XAXANADU — Pixelizer</title>
+<style>
+  :root { --bg:#0a0c12; --panel:#11141d; --line:#222838; --ink:#cfe9ff; --dim:#7d8aa5; --accent:#2cf5d6; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.5 Consolas, "Courier New", monospace;
+    display: grid; grid-template-columns: 320px 1fr; min-height: 100vh;
+  }
+  h1 { font-size: 15px; letter-spacing: 2px; margin: 0 0 4px; color: var(--accent); }
+  .sub { color: var(--dim); font-size: 11px; margin-bottom: 14px; }
+  #panel { background: var(--panel); border-right: 1px solid var(--line); padding: 16px; overflow-y: auto; }
+  fieldset { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 14px; padding: 10px 12px; }
+  legend { color: var(--accent); padding: 0 6px; font-size: 11px; letter-spacing: 1px; }
+  label { display: block; margin: 8px 0 2px; color: var(--dim); font-size: 11px; }
+  input[type=range] { width: 100%; }
+  input[type=number], select, textarea { width: 100%; background: #0a0d16; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 4px; padding: 5px 6px; font: inherit; }
+  textarea { resize: vertical; min-height: 92px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { flex: 1; }
+  .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+  button { background: #16203a; color: var(--ink); border: 1px solid #2a3a63;
+    border-radius: 5px; padding: 8px 10px; font: inherit; cursor: pointer; }
+  button:hover { background: #1d2b4d; }
+  button.primary { background: #103a33; border-color: #1d6457; color: var(--accent); }
+  button.primary:hover { background: #16504a; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  #stage { display: flex; flex-direction: column; gap: 14px; padding: 18px; overflow: auto; }
+  #drop { border: 2px dashed var(--line); border-radius: 10px; padding: 28px; text-align: center; color: var(--dim); }
+  #drop.hot { border-color: var(--accent); color: var(--ink); }
+  .views { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .view h2 { font-size: 11px; color: var(--dim); letter-spacing: 1px; margin: 0 0 6px; text-transform: uppercase; }
+  canvas { image-rendering: pixelated; background:
+      repeating-conic-gradient(#1a1d27 0% 25%, #12151d 0% 50%) 50% / 16px 16px;
+    border: 1px solid var(--line); border-radius: 4px; display: block; }
+  .pill { display:inline-block; font-size: 11px; color: var(--dim); }
+  .hint { color: var(--dim); font-size: 11px; margin-top: 6px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+  .sw { width: 14px; height: 14px; border-radius: 2px; border: 1px solid #0006; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>PIXELIZER</h1>
+  <div class="sub">real image → pixel sprite · runs offline · part of XAXANADU tooling</div>
+
+  <fieldset>
+    <legend>1 · Source</legend>
+    <div id="drop">Drag an image here<br>or <label style="display:inline; color:var(--accent); cursor:pointer; text-decoration:underline">browse<input id="file" type="file" accept="image/*" hidden></label></div>
+    <div class="hint" id="srcInfo">No image loaded.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>2 · Resolution</legend>
+    <label>Output width (px): <span class="val" id="wOut">64</span></label>
+    <input id="targetW" type="range" min="8" max="256" step="1" value="64">
+    <div class="hint">Target sprite/tile width. Height keeps aspect. (Game: TILE=16, hero ≈12×14.)</div>
+    <label class="row"><span>Snap to multiple of</span>
+      <select id="snap"><option value="1">1 (off)</option><option value="2">2</option><option value="4">4</option><option value="8">8</option><option value="16" selected>16 (tile)</option></select>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>3 · Palette</legend>
+    <label class="row"><span>Mode</span>
+      <select id="palMode">
+        <option value="lock">Lock to palette</option>
+        <option value="auto">Auto-extract (k-means)</option>
+        <option value="none">No quantize (just downscale)</option>
+      </select>
+    </label>
+    <div id="autoWrap">
+      <label>Colors: <span class="val" id="kVal">16</span></label>
+      <input id="kColors" type="range" min="2" max="32" step="1" value="16">
+    </div>
+    <div id="lockWrap">
+      <label>Palette (one hex per line)</label>
+      <textarea id="palText"></textarea>
+      <div class="btns" style="margin-top:6px">
+        <button id="loadDF">Dark-fantasy</button>
+        <button id="loadGame">Game COLORS</button>
+      </div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <label class="row" style="margin-top:8px"><span>Dithering</span>
+      <select id="dither"><option value="none">None</option><option value="fs">Floyd–Steinberg</option><option value="bayer">Bayer (ordered)</option></select>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>4 · Transparency</legend>
+    <label class="row"><span>Background key</span>
+      <select id="bgMode"><option value="none">Keep opaque</option><option value="corner">Auto (corner color)</option><option value="pick">Pick color</option></select>
+    </label>
+    <div class="row" id="pickWrap" style="display:none">
+      <input id="bgColor" type="color" value="#ff00ff" style="flex:0 0 40px; height:30px; padding:0">
+      <span class="pill">flat bg color to remove</span>
+    </div>
+    <label>Tolerance: <span class="val" id="tolVal">40</span></label>
+    <input id="tol" type="range" min="0" max="160" step="1" value="40">
+    <div class="hint">Tip: generate art on flat magenta (#ff00ff), then key it out here.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>5 · Export</legend>
+    <label class="row"><span>Scale</span>
+      <select id="expScale"><option value="1">1× (native)</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select>
+    </label>
+    <div class="btns" style="margin-top:8px">
+      <button id="exportBtn" class="primary">Download PNG</button>
+    </div>
+    <div class="hint" id="outInfo"></div>
+  </fieldset>
+</div>
+
+<div id="stage">
+  <div class="views">
+    <div class="view">
+      <h2>Source</h2>
+      <canvas id="srcCanvas" width="320" height="240"></canvas>
+    </div>
+    <div class="view">
+      <h2>Pixelized (preview ×<span id="zoomLbl">6</span>)</h2>
+      <canvas id="outCanvas" width="384" height="288"></canvas>
+      <div class="hint">Native size: <span class="val" id="nativeDims">—</span></div>
+    </div>
+  </div>
+  <div class="view">
+    <h2>Preview zoom</h2>
+    <input id="zoom" type="range" min="1" max="16" step="1" value="6" style="max-width:480px">
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ---------- curated starter palettes ----------
+const DARK_FANTASY = [
+  "#0b0d10","#1a1c22","#2b2f3a","#3d4250","#5a5246","#6b4f2e","#8a6a3b","#b08d57",
+  "#d9b36b","#2e3b2a","#4a5d3a","#6f8552","#6b2b2b","#9e3b32","#c25b3a","#e0a85a",
+  "#5a7d8c","#8a6fb0","#d9d2c0","#f2ead2"
+];
+// The game's CURRENT placeholder palette (neon). Kept so you can match the
+// existing build; the target art direction is the dark-fantasy set above.
+const GAME_COLORS = [
+  "#05060c","#2cf5d6","#bafff4","#ff4d6d","#ff9f1c","#1b2a4a","#3a6df0","#7c5cff",
+  "#ffd54a","#9bffb0","#ff5cf0","#5cd6ff","#cfe9ff"
+];
+
+// ---------- state ----------
+let srcImg = null;          // loaded HTMLImageElement
+let nativeCanvas = null;    // offscreen canvas at native output resolution (the export source)
+
+// ---------- elements ----------
+const $ = (id) => document.getElementById(id);
+const els = {
+  drop:$("drop"), file:$("file"), srcInfo:$("srcInfo"),
+  targetW:$("targetW"), wOut:$("wOut"), snap:$("snap"),
+  palMode:$("palMode"), autoWrap:$("autoWrap"), lockWrap:$("lockWrap"),
+  kColors:$("kColors"), kVal:$("kVal"), palText:$("palText"), swatches:$("swatches"),
+  loadDF:$("loadDF"), loadGame:$("loadGame"), dither:$("dither"),
+  bgMode:$("bgMode"), pickWrap:$("pickWrap"), bgColor:$("bgColor"), tol:$("tol"), tolVal:$("tolVal"),
+  expScale:$("expScale"), exportBtn:$("exportBtn"), outInfo:$("outInfo"),
+  srcCanvas:$("srcCanvas"), outCanvas:$("outCanvas"), nativeDims:$("nativeDims"),
+  zoom:$("zoom"), zoomLbl:$("zoomLbl"),
+};
+
+// ---------- color helpers ----------
+function hexToRgb(h) {
+  h = h.trim().replace(/^#/, "");
+  if (h.length === 3) h = h.split("").map(c => c + c).join("");
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function parsePalette(text) {
+  return text.split(/\s+/).map(s => s.trim()).filter(Boolean)
+    .map(hexToRgb).filter(c => c.every(v => !isNaN(v)));
+}
+function dist2(r,g,b, c) { const dr=r-c[0], dg=g-c[1], db=b-c[2]; return dr*dr+dg*dg+db*db; }
+function nearest(r,g,b, pal) {
+  let best=0, bd=Infinity;
+  for (let i=0;i<pal.length;i++){ const d=dist2(r,g,b,pal[i]); if(d<bd){bd=d;best=i;} }
+  return pal[best];
+}
+
+// ---------- k-means palette extraction ----------
+function kmeans(pixels, k, iters=8) {
+  // pixels: flat [r,g,b,...] of OPAQUE pixels only
+  const n = pixels.length / 3;
+  if (n === 0) return [[0,0,0]];
+  k = Math.min(k, n);
+  // init: evenly sampled seeds
+  const cents = [];
+  for (let i=0;i<k;i++){ const p=Math.floor(i*(n-1)/(k-1||1))*3; cents.push([pixels[p],pixels[p+1],pixels[p+2]]); }
+  const assign = new Int32Array(n);
+  for (let it=0; it<iters; it++) {
+    // assign
+    for (let i=0;i<n;i++){
+      const r=pixels[i*3],g=pixels[i*3+1],b=pixels[i*3+2];
+      let best=0,bd=Infinity;
+      for(let c=0;c<k;c++){const d=dist2(r,g,b,cents[c]); if(d<bd){bd=d;best=c;}}
+      assign[i]=best;
+    }
+    // recompute
+    const sum = Array.from({length:k},()=>[0,0,0,0]);
+    for(let i=0;i<n;i++){const c=assign[i]; sum[c][0]+=pixels[i*3];sum[c][1]+=pixels[i*3+1];sum[c][2]+=pixels[i*3+2];sum[c][3]++;}
+    for(let c=0;c<k;c++){ if(sum[c][3]){cents[c]=[Math.round(sum[c][0]/sum[c][3]),Math.round(sum[c][1]/sum[c][3]),Math.round(sum[c][2]/sum[c][3])];} }
+  }
+  return cents;
+}
+
+// ---------- main processing ----------
+function getActivePalette(data) {
+  const mode = els.palMode.value;
+  if (mode === "lock") return parsePalette(els.palText.value) || [];
+  if (mode === "auto") {
+    const opaque = [];
+    for (let i=0;i<data.length;i+=4){ if(data[i+3]>=128){ opaque.push(data[i],data[i+1],data[i+2]); } }
+    return kmeans(opaque, parseInt(els.kColors.value,10));
+  }
+  return null; // none
+}
+
+// Bayer 4x4 ordered-dither threshold map (0..15 normalized)
+const BAYER4 = [0,8,2,10, 12,4,14,6, 3,11,1,9, 15,7,13,5].map(v => (v/16 - 0.5));
+
+function process() {
+  if (!srcImg) return;
+  // 1) target native size (snap)
+  const snap = parseInt(els.snap.value,10);
+  let w = parseInt(els.targetW.value,10);
+  w = Math.max(snap, Math.round(w/snap)*snap);
+  let h = Math.max(1, Math.round(w * srcImg.height / srcImg.width));
+  if (snap>1) h = Math.max(snap, Math.round(h/snap)*snap);
+
+  // 2) area-averaged downscale into native canvas
+  const nc = document.createElement("canvas"); nc.width=w; nc.height=h;
+  const nctx = nc.getContext("2d");
+  nctx.imageSmoothingEnabled = true; nctx.imageSmoothingQuality = "high";
+  nctx.clearRect(0,0,w,h);
+  nctx.drawImage(srcImg, 0,0, w,h);
+  const img = nctx.getImageData(0,0,w,h);
+  const d = img.data;
+
+  // 3) background key -> alpha 0
+  const bgMode = els.bgMode.value, tol2 = Math.pow(parseInt(els.tol.value,10),2);
+  if (bgMode !== "none") {
+    let key;
+    if (bgMode === "corner") key = [d[0],d[1],d[2]];           // top-left pixel
+    else key = hexToRgb(els.bgColor.value);                    // picked color
+    for (let i=0;i<d.length;i+=4){ if(dist2(d[i],d[i+1],d[i+2],key) <= tol2) d[i+3]=0; }
+  }
+
+  // 4) quantize (with optional dithering) against active palette
+  const pal = getActivePalette(d);
+  const dith = els.dither.value;
+  if (pal && pal.length) {
+    if (dith === "fs") {
+      // Floyd–Steinberg error diffusion
+      for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+        const i=(y*w+x)*4; if(d[i+3]<128) continue;
+        const r=d[i],g=d[i+1],b=d[i+2];
+        const nc2=nearest(r,g,b,pal);
+        const er=r-nc2[0], eg=g-nc2[1], eb=b-nc2[2];
+        d[i]=nc2[0]; d[i+1]=nc2[1]; d[i+2]=nc2[2];
+        spread(d,w,h,x+1,y,  er,eg,eb, 7/16);
+        spread(d,w,h,x-1,y+1,er,eg,eb, 3/16);
+        spread(d,w,h,x,  y+1,er,eg,eb, 5/16);
+        spread(d,w,h,x+1,y+1,er,eg,eb, 1/16);
+      }
+    } else if (dith === "bayer") {
+      for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+        const i=(y*w+x)*4; if(d[i+3]<128) continue;
+        const t = BAYER4[(y&3)*4+(x&3)] * 48; // spread amplitude
+        const nc2=nearest(d[i]+t,d[i+1]+t,d[i+2]+t,pal);
+        d[i]=nc2[0]; d[i+1]=nc2[1]; d[i+2]=nc2[2];
+      }
+    } else {
+      for (let i=0;i<d.length;i+=4){ if(d[i+3]<128) continue;
+        const nc2=nearest(d[i],d[i+1],d[i+2],pal); d[i]=nc2[0];d[i+1]=nc2[1];d[i+2]=nc2[2]; }
+    }
+  }
+  // harden alpha (avoid semi-transparent edges from downscale)
+  for (let i=0;i<d.length;i+=4){ d[i+3] = d[i+3]>=128 ? 255 : 0; }
+
+  nctx.putImageData(img,0,0);
+  nativeCanvas = nc;
+  els.nativeDims.textContent = `${w} × ${h}`;
+  renderPreview();
+}
+
+function spread(d,w,h,x,y,er,eg,eb,f){
+  if(x<0||y<0||x>=w||y>=h) return; const i=(y*w+x)*4; if(d[i+3]<128) return;
+  d[i]+=er*f; d[i+1]+=eg*f; d[i+2]+=eb*f;
+}
+
+function renderPreview() {
+  if (!nativeCanvas) return;
+  const z = parseInt(els.zoom.value,10);
+  const oc = els.outCanvas, octx = oc.getContext("2d");
+  oc.width = nativeCanvas.width*z; oc.height = nativeCanvas.height*z;
+  octx.imageSmoothingEnabled = false;
+  octx.clearRect(0,0,oc.width,oc.height);
+  octx.drawImage(nativeCanvas, 0,0, oc.width, oc.height);
+}
+
+// ---------- source loading ----------
+function loadFile(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  const url = URL.createObjectURL(file);
+  const im = new Image();
+  im.onload = () => {
+    srcImg = im;
+    els.srcInfo.textContent = `${file.name} — ${im.width}×${im.height}`;
+    // draw source preview (fit)
+    const sc=els.srcCanvas, sctx=sc.getContext("2d");
+    const scale=Math.min(sc.width/im.width, sc.height/im.height, 1);
+    const dw=im.width*scale, dh=im.height*scale;
+    sctx.clearRect(0,0,sc.width,sc.height);
+    sctx.imageSmoothingEnabled=true;
+    sctx.drawImage(im, (sc.width-dw)/2,(sc.height-dh)/2, dw,dh);
+    URL.revokeObjectURL(url);
+    process();
+  };
+  im.src = url;
+}
+
+// ---------- export ----------
+function exportPNG() {
+  if (!nativeCanvas) { alert("Load an image first."); return; }
+  const scale = parseInt(els.expScale.value,10);
+  const ex = document.createElement("canvas");
+  ex.width = nativeCanvas.width*scale; ex.height = nativeCanvas.height*scale;
+  const ectx = ex.getContext("2d"); ectx.imageSmoothingEnabled = false;
+  ectx.drawImage(nativeCanvas, 0,0, ex.width, ex.height);
+  ex.toBlob((blob) => {
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`pixelized_${nativeCanvas.width}x${nativeCanvas.height}@${scale}x.png`;
+    a.click(); URL.revokeObjectURL(a.href);
+  }, "image/png");
+}
+
+// ---------- palette swatches ----------
+function refreshSwatches() {
+  const pal = parsePalette(els.palText.value);
+  els.swatches.innerHTML = "";
+  for (const c of pal) {
+    const s=document.createElement("div"); s.className="sw";
+    s.style.background=`rgb(${c[0]},${c[1]},${c[2]})`; els.swatches.appendChild(s);
+  }
+}
+
+// ---------- UI wiring ----------
+function syncPaletteUI() {
+  const m=els.palMode.value;
+  els.autoWrap.style.display = m==="auto" ? "" : "none";
+  els.lockWrap.style.display = m==="lock" ? "" : "none";
+}
+function syncBgUI(){ els.pickWrap.style.display = els.bgMode.value==="pick" ? "" : "none"; }
+
+els.file.addEventListener("change", e => loadFile(e.target.files[0]));
+["dragenter","dragover"].forEach(ev => els.drop.addEventListener(ev, e=>{e.preventDefault(); els.drop.classList.add("hot");}));
+["dragleave","drop"].forEach(ev => els.drop.addEventListener(ev, e=>{e.preventDefault(); els.drop.classList.remove("hot");}));
+els.drop.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
+window.addEventListener("paste", e => { const it=[...e.clipboardData.items].find(i=>i.type.startsWith("image/")); if(it) loadFile(it.getAsFile()); });
+
+els.targetW.addEventListener("input", ()=>{ els.wOut.textContent=els.targetW.value; process(); });
+els.snap.addEventListener("change", process);
+els.palMode.addEventListener("change", ()=>{ syncPaletteUI(); process(); });
+els.kColors.addEventListener("input", ()=>{ els.kVal.textContent=els.kColors.value; process(); });
+els.palText.addEventListener("input", ()=>{ refreshSwatches(); process(); });
+els.dither.addEventListener("change", process);
+els.bgMode.addEventListener("change", ()=>{ syncBgUI(); process(); });
+els.bgColor.addEventListener("input", process);
+els.tol.addEventListener("input", ()=>{ els.tolVal.textContent=els.tol.value; process(); });
+els.zoom.addEventListener("input", ()=>{ els.zoomLbl.textContent=els.zoom.value; renderPreview(); });
+els.exportBtn.addEventListener("click", exportPNG);
+els.loadDF.addEventListener("click", ()=>{ els.palText.value=DARK_FANTASY.join("\n"); refreshSwatches(); process(); });
+els.loadGame.addEventListener("click", ()=>{ els.palText.value=GAME_COLORS.join("\n"); refreshSwatches(); process(); });
+
+// init
+els.palText.value = DARK_FANTASY.join("\n");
+refreshSwatches(); syncPaletteUI(); syncBgUI();
+</script>
+</body>
+</html>

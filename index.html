@@ -10,19 +10,26 @@
   <div id="frame">
     <canvas id="game" width="512" height="288"></canvas>
     <div id="hint">
-      <strong>XAXANADU</strong> — Arrows/WASD move · Up on ladder to climb · Space/Z jump ·
-      J/X attack · K/C cast magic · Enter to use shops/doors
+      <strong>XAXANADU</strong> — Arrows/WASD move · Up/Down climb · Up at a door/NPC ·
+      Space jump (double!) · Shift attack · Enter magic · P pause/status · F fullscreen<br />
+      <span style="color:#9bffb0">Xbox controller:</span> Left stick / D-pad move &amp; climb ·
+      <strong>A</strong> jump · <strong>X</strong> attack · <strong>B</strong> magic ·
+      <span style="color:#6f88a8">M to mute</span>
     </div>
   </div>
 
   <!-- Plain scripts (no ES modules) so the game runs by simply opening this file. -->
   <script src="js/input.js"></script>
   <script src="js/assets.js"></script>
+  <script src="js/recipes.js"></script>
+  <script src="js/audio.js"></script>
   <script src="js/level.js"></script>
   <script src="js/entities.js"></script>
   <script src="js/player.js"></script>
   <script src="js/hud.js"></script>
+  <script src="js/menu.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/touch.js"></script>
 </body>
 </html>

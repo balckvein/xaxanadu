@@ -16,21 +16,47 @@ No build step, no dependencies. Just open **`index.html`** in any modern browser
 |---|---|
 | Move | Arrow keys or **A/D** |
 | Climb ladder | **Up/Down** (W/S) while on a ladder |
-| Jump | **Space** or **Z** |
-| Attack (melee) | **J** or **X** |
-| Cast magic (costs MP) | **K** or **C** |
-| Use / open door | **Enter** |
+| Enter / open door | **Up** while standing at the door |
+| Jump | **Space** |
+| Attack (melee) | **Shift** |
+| Cast magic (costs MP) | **Enter** |
+
+> Ladder-tops are walkable — you stand on them and only descend when you press **Down**.
+
+### Xbox controller
+
+Plug in (USB) or pair (Bluetooth) an Xbox controller, then **press any button** in the
+browser tab to activate it (browsers require one input before exposing a gamepad).
+A green **PAD** indicator appears top-right of the HUD when it's detected.
+
+| Action | Button |
+|---|---|
+| Move / climb | Left stick or D-pad |
+| Enter / open door | Push **Up** at the door |
+| Jump | **A** |
+| Attack | **X** (or RB / RT) |
+| Magic | **B** (or LB / LT) |
+
+### Touch (Amazon Fire tablet / phones)
+
+On a touch device the page shows **on-screen controls automatically** — a left D-pad
+(move / climb) and right buttons (**JUMP / ATK / MAG**), plus **pause** and **fullscreen**
+in the top corners. In touch mode the canvas fills the screen so it's tablet-ready.
+To preview on a desktop browser, add **`?touch=1`** to the URL (e.g. `index.html?touch=1`).
+The buttons emit the same inputs as the keys, so menus, the title, and shops all work by touch.
 
 ## What's in this build
 
-- Walk · jump · gravity · **ladder climbing**
-- **Melee** swing + **magic projectiles** (MP cost, slow regen)
-- Enemies (ground **walkers** + **flyers**), contact damage, i-frames, knockback
-- RPG stats HUD: **HP / MP / EXP / Gold / Keys / Rank-title** (16 Faxanadu-style ranks)
+- Walk (with **momentum** — accelerate to top speed, reset on stop/melee) · **double jump** · **ladder climbing**
+- **Melee** swing (damage from equipped weapon) + **magic projectiles** (MP cost, slow regen)
+- Enemies (ground **walkers** + **flyers**), contact damage softened by armor, i-frames, knockback
+- RPG stats HUD: **HP / MP / ATK / DEF / EXP / Gold / Keys / Rank-title** (16 ranks)
+- **Surface town** (safe zone) with a **Shop** (buy weapons, armor, elixirs, keys) and a **Guru** (rest + save)
+- **Mantra save/continue** — the Guru records progress to the browser; it's restored on reload
 - Pickups: gold, bread (heal), **key**
-- A **key-gated door** blocking the goal — find the key, unlock, reach the summit
-- Smooth-scrolling camera over a contiguous tilemap (open-world ready — no screen flips)
-- All art is procedural neon placeholder — easy to re-skin later
+- A **key-gated door** deep in the caves blocking the **Core** (the goal)
+- Smooth-scrolling camera over one contiguous **descent** tilemap (open-world — no screen flips)
+- Xbox **gamepad** support; all art is procedural neon placeholder — easy to re-skin later
 
 ## Architecture (so it's easy to extend)
 

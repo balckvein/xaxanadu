@@ -5,6 +5,18 @@ node_modules/
 dist/
 build/
 
+# capacitor generated web bundle
+www/
+
+# android build artifacts + generated web bundle (re-created by tools/sync-www)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/www/
+android/app/src/main/assets/public/
+*.apk
+
 # editor / os
 .DS_Store
 Thumbs.db
@@ -18,5 +30,4 @@ Thumbs.db
 *.local
 
 # Claude Code (machine-specific / local)
-.claude/settings.local.json
-.claude/scheduled_tasks.lock
+.claude/
